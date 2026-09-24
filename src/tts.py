@@ -10,16 +10,15 @@ SR = 44100
 
 
 def _headers():
-    return {"xi-api-key": os.environ["ELEVENLABS_API_KEY"]}
+    return {"xi-api-key": os.environ["ELEVENLABS_API_KEY"].strip()}
 
 
-def _resolve_voice(vc):
-    vid = vc.get("voice_id")
-    if vid:
-        r = requests.get(f"{API}/voices/{vid}", headers=_headers(), timeout=30)
-        if r.ok:
-            return vid
+def _lookup_voice(vc):
+    """Only used if the configured voice_id doesn't exist (needs Voices: Read)."""
     r = requests.get(f"{API}/voices", headers=_headers(), timeout=30)
+    if r.status_code == 401:
+        raise RuntimeError("ElevenLabs key can't read voices (401). Check the "
+                           "key, or give it 'Voices: Read' permission.")
     r.raise_for_status()
     want = vc["voice_name"].lower()
     for v in r.json().get("voices", []):
@@ -40,10 +39,26 @@ def _decode(mp3_bytes):
 def speak_all(texts, cfg):
     """Returns list of numpy arrays, one per text."""
     vc = cfg["voice"]
-    voice_id = _resolve_voice(vc)
+    voice_id = vc.get("voice_id") or _lookup_voice(vc)
     out = []
     for i, text in enumerate(texts):
-        r = requests.post(
+        r = _tts(voice_id, texts, i, vc)
+        if r.status_code == 404 and i == 0:
+            voice_id = _lookup_voice(vc)
+            r = _tts(voice_id, texts, i, vc)
+        if r.status_code == 401:
+            raise RuntimeError("ElevenLabs rejected the key (401). Re-copy "
+                               "ELEVENLABS_API_KEY; it needs Text to Speech "
+                               "access. Detail: " + r.text[:300])
+        if not r.ok:
+            raise RuntimeError(f"ElevenLabs {r.status_code}: {r.text[:300]}")
+        out.append(_decode(r.content))
+    return out
+
+
+def _tts(voice_id, texts, i, vc):
+    text = texts[i]
+    return requests.post(
             f"{API}/text-to-speech/{voice_id}",
             headers={**_headers(), "Accept": "audio/mpeg"},
             params={"output_format": "mp3_44100_128"},
@@ -62,7 +77,3 @@ def speak_all(texts, cfg):
             },
             timeout=120,
         )
-        if not r.ok:
-            raise RuntimeError(f"ElevenLabs {r.status_code}: {r.text[:300]}")
-        out.append(_decode(r.content))
-    return out
