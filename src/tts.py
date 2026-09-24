@@ -1,4 +1,11 @@
-"""ElevenLabs narration, one request per segment so scenes sync exactly."""
+"""ElevenLabs narration as ONE continuous take, with word timings.
+
+Returns (audio, timeline):
+  audio    mono float32 numpy at SR
+  timeline {"seg_starts": [s0, s1, ...], "words": [(word, start, end, seg)],
+            "end": last_word_end}
+"""
+import base64
 import os
 import subprocess
 
@@ -13,22 +20,7 @@ def _headers():
     return {"xi-api-key": os.environ["ELEVENLABS_API_KEY"].strip()}
 
 
-def _lookup_voice(vc):
-    """Only used if the configured voice_id doesn't exist (needs Voices: Read)."""
-    r = requests.get(f"{API}/voices", headers=_headers(), timeout=30)
-    if r.status_code == 401:
-        raise RuntimeError("ElevenLabs key can't read voices (401). Check the "
-                           "key, or give it 'Voices: Read' permission.")
-    r.raise_for_status()
-    want = vc["voice_name"].lower()
-    for v in r.json().get("voices", []):
-        if v["name"].lower().startswith(want):
-            return v["voice_id"]
-    raise RuntimeError(f"Voice {vc['voice_name']!r} not found in ElevenLabs")
-
-
 def _decode(mp3_bytes):
-    """mp3 -> mono float32 numpy at SR."""
     p = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", "pipe:0", "-f", "f32le", "-ac", "1",
          "-ar", str(SR), "pipe:1"],
@@ -36,44 +28,101 @@ def _decode(mp3_bytes):
     return np.frombuffer(p.stdout, dtype=np.float32).copy()
 
 
-def speak_all(texts, cfg):
-    """Returns list of numpy arrays, one per text."""
-    vc = cfg["voice"]
-    voice_id = vc.get("voice_id") or _lookup_voice(vc)
-    out = []
-    for i, text in enumerate(texts):
-        r = _tts(voice_id, texts, i, vc)
-        if r.status_code == 404 and i == 0:
-            voice_id = _lookup_voice(vc)
-            r = _tts(voice_id, texts, i, vc)
-        if r.status_code == 401:
-            raise RuntimeError("ElevenLabs rejected the key (401). Re-copy "
-                               "ELEVENLABS_API_KEY; it needs Text to Speech "
-                               "access. Detail: " + r.text[:300])
-        if not r.ok:
-            raise RuntimeError(f"ElevenLabs {r.status_code}: {r.text[:300]}")
-        out.append(_decode(r.content))
-    return out
+def _lookup_voice(name):
+    r = requests.get(f"{API}/voices", headers=_headers(), timeout=30)
+    if r.status_code == 401:
+        raise RuntimeError("ElevenLabs key can't read voices (401): give it "
+                           "'Voices: Read' or fix voice_id in config.yaml.")
+    r.raise_for_status()
+    for v in r.json().get("voices", []):
+        if v["name"].lower().startswith(name.lower()):
+            return v["voice_id"]
+    raise RuntimeError(f"Voice {name!r} not found in ElevenLabs")
 
 
-def _tts(voice_id, texts, i, vc):
-    text = texts[i]
+def _request(voice_id, text, vc):
     return requests.post(
-            f"{API}/text-to-speech/{voice_id}",
-            headers={**_headers(), "Accept": "audio/mpeg"},
-            params={"output_format": "mp3_44100_128"},
-            json={
-                "text": text,
-                "model_id": vc["model"],
-                "voice_settings": {
-                    "stability": vc["stability"],
-                    "similarity_boost": vc["similarity_boost"],
-                    "style": vc["style"],
-                    "speed": vc["speed"],
-                },
-                # keeps delivery consistent from line to line
-                "previous_text": texts[i - 1] if i else None,
-                "next_text": texts[i + 1] if i + 1 < len(texts) else None,
+        f"{API}/text-to-speech/{voice_id}/with-timestamps",
+        headers=_headers(),
+        params={"output_format": "mp3_44100_128"},
+        json={
+            "text": text,
+            "model_id": vc["model"],
+            "voice_settings": {
+                "stability": vc["stability"],
+                "similarity_boost": vc["similarity_boost"],
+                "style": vc["style"],
+                "speed": vc["speed"],
+                "use_speaker_boost": True,
             },
-            timeout=120,
-        )
+        },
+        timeout=180,
+    )
+
+
+def build_timeline(segments, chars, starts, ends):
+    """Map each segment and each word onto the character timings."""
+    joined = "".join(chars)
+    bounds, cursor = [], 0
+    for seg in segments:
+        idx = joined.find(seg.strip()[:12], cursor)
+        if idx < 0:
+            idx = cursor
+        bounds.append(idx)
+        cursor = idx + 1
+    bounds.append(len(joined))
+    seg_starts, words = [], []
+    for si in range(len(segments)):
+        a, b = bounds[si], bounds[si + 1]
+        seg_starts.append(starts[min(a, len(starts) - 1)])
+        i = a
+        while i < b:
+            while i < b and chars[i].isspace():
+                i += 1
+            j = i
+            while j < b and not chars[j].isspace():
+                j += 1
+            if j > i:
+                words.append(("".join(chars[i:j]), starts[i], ends[j - 1], si))
+            i = j
+    seg_starts[0] = 0.0
+    return {"seg_starts": seg_starts, "words": words,
+            "end": words[-1][2] if words else ends[-1]}
+
+
+def speak(segments, cfg):
+    vc = cfg["voice"]
+    text = " ".join(s.strip() for s in segments)
+    voice_id = vc.get("voice_id") or _lookup_voice(vc["voice_name"])
+    r = _request(voice_id, text, vc)
+    if r.status_code == 404:
+        voice_id = _lookup_voice(vc["voice_name"])
+        r = _request(voice_id, text, vc)
+    if r.status_code == 401:
+        raise RuntimeError("ElevenLabs rejected the key (401). Detail: "
+                           + r.text[:300])
+    if not r.ok:
+        raise RuntimeError(f"ElevenLabs {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    audio = _decode(base64.b64decode(data["audio_base64"]))
+    al = data.get("alignment") or data.get("normalized_alignment")
+    tl = build_timeline(segments, al["characters"],
+                        al["character_start_times_seconds"],
+                        al["character_end_times_seconds"])
+    return audio, tl
+
+
+def mock(segments, wps=3.0):
+    """Timing estimate without API calls (layout tests)."""
+    chars, starts, ends, t = [], [], [], 0.15
+    text = " ".join(s.strip() for s in segments)
+    for ch in text:
+        dur = 0.0 if ch == " " else 1 / (wps * 5.2)
+        if ch in ".?!":
+            dur += 0.25
+        chars.append(ch)
+        starts.append(t)
+        ends.append(t + dur)
+        t += dur
+    tl = build_timeline(segments, chars, starts, ends)
+    return np.zeros(int((tl["end"] + 0.5) * SR), dtype=np.float32), tl

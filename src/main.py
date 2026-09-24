@@ -7,7 +7,6 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
 import yaml
 
 from src import render, topics
@@ -18,10 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 def mock_script(r):
     n = len(r.items)
     return {
-        "hook": "Everyone thinks they know number one. Let me rank that.",
-        "lines": [f"{it.name} comes in at {it.display}."
-                  for it in reversed(r.items)],
-        "outro": "Honestly, the winner surprised even me. Where's yours?",
+        "hook": f"You pay {r.reference.get('display', 'a lot')}. Let me rank that.",
+        "lines": [f"{it.name}: {it.note}." for it in reversed(r.items)],
+        "outro": "Which one surprised you most?",
         "yt_title": f"{r.title}: top {n} ranked",
         "description": "A mock script for layout testing.",
         "tags": ["ranking"],
@@ -44,21 +42,15 @@ def build(topic_id=None, mock=False, out_dir="out"):
     texts = [script["hook"], *script["lines"], script["outro"]]
     print("[main] narration:\n   " + "\n   ".join(texts))
 
-    if mock:
-        voices = [np.zeros(int(render.SR * (1.6 + 0.045 * len(t))),
-                           dtype=np.float32) for t in texts]
-    else:
-        from src import tts
-        voices = tts.speak_all(texts, cfg)
-
-    pad = cfg["video"]["pad_after_line"]
-    durations = [len(v) / render.SR + pad for v in voices]
-    durations[0] += 0.3  # let the title land
+    from src import tts
+    voice, timeline = tts.mock(texts) if mock else tts.speak(texts, cfg)
+    print("[main] reveal times: " + ", ".join(
+        f"{s:.1f}s" for s in timeline["seg_starts"]))
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    video = render.Renderer(ranking, script, durations, cfg).render(
-        voices, out / f"{ranking.topic_id}.mp4")
+    video = render.Renderer(ranking, script, timeline, cfg).render(
+        voice, out / f"{ranking.topic_id}.mp4")
 
     description = (script["description"].strip() + "\n\n"
                    + ranking.source_long + "\n\n#shorts #ranking")
@@ -67,8 +59,10 @@ def build(topic_id=None, mock=False, out_dir="out"):
         "pillar": ranking.pillar,
         "title": script["yt_title"].strip(),
         "description": description,
+        "reference": ranking.reference,
         "tags": script.get("tags", []),
-        "items": [{"rank": i, "name": it.name, "display": it.display}
+        "items": [{"rank": i, "name": it.name, "display": it.display,
+                   "note": it.note}
                   for i, it in enumerate(ranking.items, 1)],
         "narration": texts,
         "video": str(video),

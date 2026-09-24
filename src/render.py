@@ -115,31 +115,79 @@ def make_background(w, h, accent):
     return Image.alpha_composite(img.convert("RGBA"), grid).convert("RGB")
 
 
+# ------------------------------------------------------------------ flags ----
+_flag_cache = {}
+_flag_zip = None
+
+
+def _flag_from_zip(code):
+    """Flags (flag-icons, MIT) are packed in assets/flags.zip."""
+    global _flag_zip
+    import io
+    import zipfile
+    if _flag_zip is None:
+        _flag_zip = zipfile.ZipFile(ROOT / "assets/flags.zip")
+    try:
+        return Image.open(io.BytesIO(_flag_zip.read(f"{code}.png")))
+    except KeyError:
+        return None
+
+
+def flag_img(code, w):
+    key = (code, w)
+    if key not in _flag_cache:
+        im = _flag_from_zip(code) if code else None
+        if im is None:
+            _flag_cache[key] = None
+        else:
+            im = im.convert("RGBA")
+            h = int(w * 3 / 4)
+            im = im.resize((w, h), Image.LANCZOS)
+            mask = Image.new("L", (w, h), 0)
+            ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1],
+                                                   radius=max(4, w // 10),
+                                                   fill=255)
+            im.putalpha(mask)
+            _flag_cache[key] = im
+    return _flag_cache[key]
+
+
 # ------------------------------------------------------------------ scene ----
 class Renderer:
-    def __init__(self, ranking, script, durations, cfg):
+    def __init__(self, ranking, script, timeline, cfg):
         v = cfg["video"]
         self.W, self.H, self.fps = v["width"], v["height"], v["fps"]
-        self.r = ranking
-        self.s = script
+        self.r, self.s, self.tl = ranking, script, timeline
         self.n = len(ranking.items)
         pillar = cfg["pillars"][ranking.pillar]
         self.accent = hex_rgb(pillar["accent"])
         self.pillar_label = pillar["label"]
         self.brand = cfg["channel"]["name"].upper()
         self.bg = make_background(self.W, self.H, self.accent)
-        # segments: hook, lines (#n..#1), outro
-        self.texts = [script["hook"], *script["lines"], script["outro"]]
-        self.starts, t = [], 0.0
-        for d in durations:
-            self.starts.append(t)
-            t += d
-        self.total = t + 0.6  # small tail
-        self.durations = durations
-        self.max_val = max(abs(i.value) for i in ranking.items) or 1
+        self.starts = timeline["seg_starts"]
+        self.total = timeline["end"] + 1.2
+        self.ref = ranking.reference or {}
+        vals = [abs(i.value) for i in ranking.items]
+        if self.ref:
+            vals.append(abs(self.ref["value"]))
+        self.max_val = max(vals) or 1
         self.parts = [split_display(i.display) for i in ranking.items]
+        self.chunks = self._chunks(timeline["words"])
 
-    # rank r (1 = best) is revealed in segment index (n - r + 1)
+    @staticmethod
+    def _chunks(words, size=3):
+        """Group words into caption chunks (never across segments)."""
+        out, cur = [], []
+        for w in words:
+            if cur and (len(cur) >= size or w[3] != cur[-1][3]
+                        or cur[-1][0][-1:] in ".?!,"):
+                out.append(cur)
+                cur = []
+            cur.append(w)
+        if cur:
+            out.append(cur)
+        return out
+
     def reveal_time(self, rank):
         return self.starts[self.n - rank + 1]
 
@@ -150,13 +198,57 @@ class Renderer:
                 idx = i
         return idx
 
+    def zoom_at(self, t):
+        z = 1.0
+        for rank in range(1, self.n + 1):
+            p = t - self.reveal_time(rank)
+            if 0 <= p < 0.6:
+                amp = 0.05 if rank == 1 else 0.03
+                z = max(z, 1 + amp * math.sin(math.pi * p / 0.6))
+        return z
+
+    def draw_captions(self, d, t):
+        W = self.W
+        chunk = None
+        for i, c in enumerate(self.chunks):
+            end = self.chunks[i + 1][0][1] if i + 1 < len(self.chunks) else c[-1][2] + 0.6
+            if c[0][1] - 0.05 <= t < end:
+                chunk = c
+                break
+        if not chunk:
+            return
+        f = font(FONT_DISPLAY, 92)
+        text_words = [w[0].upper() for w in chunk]
+        space = d.textlength(" ", font=f)
+        widths = [d.textlength(w, font=f) for w in text_words]
+        total_w = sum(widths) + space * (len(widths) - 1)
+        scale_f = f
+        if total_w > W - 140:
+            size = int(92 * (W - 140) / total_w)
+            scale_f = font(FONT_DISPLAY, size)
+            widths = [d.textlength(w, font=scale_f) for w in text_words]
+            space = d.textlength(" ", font=scale_f)
+            total_w = sum(widths) + space * (len(widths) - 1)
+        x = (W - total_w) / 2
+        y = 1600
+        for (word, ws, we, _), label, wdt in zip(chunk, text_words, widths):
+            active = ws - 0.04 <= t
+            col = self.accent if (ws - 0.04 <= t < we + 0.08) else WHITE
+            alpha = 255 if active else 110
+            for ox, oy in ((-4, 0), (4, 0), (0, -4), (0, 4), (3, 3), (-3, 3)):
+                d.text((x + ox, y + oy), label, font=scale_f,
+                       fill=(0, 0, 0, alpha), anchor="lm")
+            d.text((x, y), label, font=scale_f, fill=(*col, alpha),
+                   anchor="lm")
+            x += wdt + space
+
     def frame(self, t):
         W, H = self.W, self.H
         img = self.bg.copy()
         d = ImageDraw.Draw(img, "RGBA")
         acc = self.accent
 
-        # header: brand pill + pillar
+        # header
         f_brand = font(FONT_TEXT, 30, "Bold")
         label = f"{self.brand}  ·  {self.pillar_label}"
         tw = d.textlength(label, font=f_brand)
@@ -164,125 +256,128 @@ class Renderer:
                             radius=27, fill=(*acc, 40), outline=(*acc, 160),
                             width=2)
         d.text((W / 2, 123), label, font=f_brand, fill=WHITE, anchor="mm")
-
-        # title pops in during the first 0.5 s
-        k = ease_out_back(t / 0.5)
+        k = ease_out_back(t / 0.45)
         title = self.r.title.upper()
         f_title = fit_font(d, title, FONT_DISPLAY, int(118 * max(k, 0.01)),
                            W - 120, min_size=10)
         d.text((W / 2, 250), title, font=f_title, fill=WHITE, anchor="mm")
         f_sub = font(FONT_TEXT, 36, "Medium")
-        d.text((W / 2, 345), self.r.subtitle, font=f_sub, fill=GREY,
+        d.text((W / 2, 340), self.r.subtitle, font=f_sub, fill=GREY,
                anchor="mm")
 
-        # leaderboard
-        top, row_h, gap = 440, 176, 18
+        # board geometry
+        top, row_h, gap = 470, 168, 16
         x0, x1 = 60, W - 60
+        bx = x0 + 28
+        tx = bx + 100 + 28          # text column
+        bar_x0, bar_x1 = tx, x1 - 34
+
+        # reference chip + dashed line
+        if self.ref:
+            f_ref = font(FONT_TEXT, 32, "SemiBold")
+            ref_label = f"{self.ref['name']}: {self.ref['display']}"
+            fl = flag_img(self.ref.get("code", ""), 44)
+            rw = d.textlength(ref_label, font=f_ref) + (58 if fl else 0)
+            rx = (W - rw) / 2
+            if fl:
+                img.paste(fl, (int(rx), 394), fl)
+                rx += 58
+            d.text((rx, 411), ref_label, font=f_ref, fill=WHITE, anchor="lm")
+
         for rank in range(1, self.n + 1):
             item = self.r.items[rank - 1]
             y = top + (rank - 1) * (row_h + gap)
             rt = self.reveal_time(rank)
-            p = (t - rt)
+            p = t - rt
             revealed = p >= 0
             active = revealed and self.segment_at(t) == self.n - rank + 1
-            is_one_final = rank == 1 and revealed
-
-            slide = ease_out(p / 0.35) if revealed else 0
-            dx = int((1 - slide) * 80) if revealed else 0
-            box_fill = (255, 255, 255, 14) if revealed else (255, 255, 255, 6)
+            is_one = rank == 1 and revealed
+            slide = ease_out(p / 0.3) if revealed else 0
+            dx = int((1 - slide) * 90) if revealed else 0
             outline = (*acc, 255) if active else (255, 255, 255, 22)
-            if is_one_final:
-                pulse = 0.5 + 0.5 * math.sin((t - rt) * 5)
-                outline = (*acc, int(160 + 95 * pulse))
+            if is_one and not active:
+                pulse = 0.5 + 0.5 * math.sin(p * 5)
+                outline = (*acc, int(150 + 100 * pulse))
             d.rounded_rectangle([x0 + dx, y, x1 + dx, y + row_h], radius=26,
-                                fill=box_fill, outline=outline,
-                                width=4 if (active or is_one_final) else 2)
-
-            # rank badge
-            bx, by = x0 + 30 + dx, y + row_h / 2
-            badge_col = acc if revealed else DIM
-            d.ellipse([bx, by - 52, bx + 104, by + 52], fill=(*badge_col, 255))
-            f_rank = font(FONT_DISPLAY, 60)
-            d.text((bx + 52, by + 2), f"#{rank}", font=f_rank,
+                                fill=(255, 255, 255, 16 if revealed else 5),
+                                outline=outline,
+                                width=4 if (active or is_one) else 2)
+            cy = y + row_h / 2
+            badge = acc if revealed else DIM
+            d.ellipse([bx + dx, cy - 50, bx + 100 + dx, cy + 50],
+                      fill=(*badge, 255))
+            d.text((bx + 50 + dx, cy + 2), f"#{rank}",
+                   font=font(FONT_DISPLAY, 58),
                    fill=(10, 12, 20) if revealed else GREY, anchor="mm")
-
-            tx = bx + 136
             if not revealed:
-                f_q = font(FONT_DISPLAY, 64)
-                d.text((tx, by), "?", font=f_q, fill=DIM, anchor="lm")
+                d.text((tx, cy), "?", font=font(FONT_DISPLAY, 60), fill=DIM,
+                       anchor="lm")
                 continue
 
-            # value counter
-            cnt = ease_out(p / 0.9)
+            # flag + name + value
+            name_y = y + 54
+            nx = tx + dx
+            fl = flag_img(item.code, 72)
+            if fl:
+                img.paste(fl, (int(nx), int(name_y - 27)), fl)
+                nx += 90
+            cnt = ease_out(p / 0.8)
             val_txt = (format_counter(self.parts[rank - 1], cnt)
                        if self.parts[rank - 1] else item.display)
             f_val = font(FONT_DISPLAY, 64)
-            d.text((x1 - 34 + dx, y + 58), val_txt, font=f_val, fill=WHITE,
+            d.text((x1 - 34 + dx, name_y), val_txt, font=f_val, fill=WHITE,
                    anchor="rm")
             val_w = d.textlength(item.display, font=f_val)
-
-            # name
-            name_max = (x1 - 34 - val_w - 30) - tx
-            f_name = fit_font(d, item.name, FONT_TEXT, 54, name_max, "Bold")
-            a = int(255 * min(1, p / 0.25))
-            d.text((tx + dx, y + 58), item.name, font=f_name,
-                   fill=(*WHITE, a), anchor="lm")
-
+            f_name = fit_font(d, item.name, FONT_TEXT, 52,
+                              (x1 - 34 - val_w - 30) - (nx - dx), "Bold")
+            d.text((nx, name_y), item.name, font=f_name, fill=WHITE,
+                   anchor="lm")
             # bar
-            bar_x0, bar_x1 = tx + dx, x1 - 34 + dx
-            bar_y = y + 118
-            d.rounded_rectangle([bar_x0, bar_y, bar_x1, bar_y + 26],
-                                radius=13, fill=(255, 255, 255, 18))
+            by = y + 112
+            d.rounded_rectangle([bar_x0 + dx, by, bar_x1 + dx, by + 24],
+                                radius=12, fill=(255, 255, 255, 18))
             frac = abs(item.value) / self.max_val
-            grow = ease_out(p / 0.8)
-            bw = max(26, (bar_x1 - bar_x0) * frac * grow)
-            d.rounded_rectangle([bar_x0, bar_y, bar_x0 + bw, bar_y + 26],
-                                radius=13, fill=(*acc, 255))
+            bw = max(24, (bar_x1 - bar_x0) * frac * ease_out(p / 0.7))
+            d.rounded_rectangle([bar_x0 + dx, by, bar_x0 + dx + bw, by + 24],
+                                radius=12, fill=(*acc, 255))
 
-        # caption for the current line
-        seg = self.segment_at(t)
-        if seg < len(self.texts):
-            seg_p = t - self.starts[seg]
-            a = int(255 * min(1, seg_p / 0.18))
-            f_cap = font(FONT_TEXT, 50, "Bold")
-            lines = wrap(d, self.texts[seg], f_cap, W - 200)[:4]
-            lh = 64
-            cy0 = 1500
-            box_h = lh * len(lines) + 56
-            d.rounded_rectangle([70, cy0, W - 70, cy0 + box_h], radius=28,
-                                fill=(0, 0, 0, int(150 * a / 255)))
-            for i, ln in enumerate(lines):
-                d.text((W / 2, cy0 + 28 + lh * i + lh / 2), ln, font=f_cap,
-                       fill=(*WHITE, a), anchor="mm")
+        # reference line drawn over the bars
+        if self.ref:
+            ref_x = bar_x0 + (bar_x1 - bar_x0) * abs(self.ref["value"]) / self.max_val
+            yb0, yb1 = top + 96, top + self.n * (row_h + gap) - gap - 20
+            y = yb0
+            while y < yb1:
+                d.line([(ref_x, y), (ref_x, min(y + 14, yb1))],
+                       fill=(255, 255, 255, 170), width=3)
+                y += 24
 
-        # outro call to action
-        if seg == len(self.texts) - 1:
-            f_cta = font(FONT_TEXT, 38, "SemiBold")
-            d.text((W / 2, 1450), "Agree? Tell me in the comments",
-                   font=f_cta, fill=(*acc, 255), anchor="mm")
-
-        # flash on #1 reveal
+        # flash on #1
         t1 = self.reveal_time(1)
-        if 0 <= t - t1 < 0.35:
-            fa = int(110 * (1 - (t - t1) / 0.35))
-            d.rectangle([0, 0, W, H], fill=(*acc, fa))
+        if 0 <= t - t1 < 0.3:
+            d.rectangle([0, 0, W, H], fill=(*acc, int(100 * (1 - (t - t1) / 0.3))))
 
-        # source
-        f_src = font(FONT_TEXT, 28, "Medium")
-        d.text((W / 2, 1830), self.r.source, font=f_src, fill=GREY,
-               anchor="mm")
+        # push-in (board + header), captions and source stay sharp on top
+        z = self.zoom_at(t)
+        if z > 1.001:
+            zw, zh = int(W * z), int(H * z)
+            big = img.resize((zw, zh), Image.BILINEAR)
+            ox, oy = (zw - W) // 2, int((zh - H) * 0.45)
+            img = big.crop((ox, oy, ox + W, oy + H))
+            d = ImageDraw.Draw(img, "RGBA")
+
+        self.draw_captions(d, t)
+        d.text((W / 2, 1840), self.r.source, font=font(FONT_TEXT, 28, "Medium"),
+               fill=GREY, anchor="mm")
         return img
 
     # --------------------------------------------------------------- audio --
-    def audio(self, voices):
+    def audio(self, voice):
         total = int(self.total * SR)
         mix = np.zeros(total, dtype=np.float32)
-        for s, v in zip(self.starts, voices):
-            i = int(s * SR)
-            mix[i:i + len(v)] += v[:max(0, total - i)]
+        mix[:min(total, len(voice))] += voice[:total]
         rng = np.random.default_rng(7)
         for rank in range(1, self.n + 1):
-            i = int(self.reveal_time(rank) * SR)
+            i = int(max(0, self.reveal_time(rank) - 0.08) * SR)
             sfx = _whoosh(rng)
             if rank == 1:
                 ding = _ding()
@@ -291,17 +386,18 @@ class Renderer:
             j = min(total, i + len(sfx))
             mix[i:j] += sfx[:j - i]
         peak = np.max(np.abs(mix)) or 1
-        return (mix / peak * 0.92).astype(np.float32)
+        return (mix / peak * 0.9).astype(np.float32)
 
-    def render(self, voices, out_path):
+    def render(self, voice, out_path):
         out_path = Path(out_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         wav = out_path.with_suffix(".wav")
-        a = self.audio(voices)
         subprocess.run(
             ["ffmpeg", "-y", "-v", "error", "-f", "f32le", "-ar", str(SR),
-             "-ac", "1", "-i", "pipe:0", str(wav)],
-            input=a.tobytes(), check=True)
+             "-ac", "1", "-i", "pipe:0",
+             "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-ar", str(SR),
+             str(wav)],
+            input=self.audio(voice).tobytes(), check=True)
         frames = int(self.total * self.fps)
         proc = subprocess.Popen(
             ["ffmpeg", "-y", "-v", "error", "-f", "rawvideo",
@@ -321,14 +417,12 @@ class Renderer:
         return out_path
 
 
-def _whoosh(rng, dur=0.45):
+def _whoosh(rng, dur=0.4):
     n = int(dur * SR)
     noise = rng.standard_normal(n).astype(np.float32)
-    # crude band sweep via moving-average of varying width
     env = np.sin(np.linspace(0, np.pi, n)) ** 2
-    k = 24
-    smooth = np.convolve(noise, np.ones(k) / k, mode="same")
-    return (smooth * env * 0.22).astype(np.float32)
+    smooth = np.convolve(noise, np.ones(24) / 24, mode="same")
+    return (smooth * env * 0.2).astype(np.float32)
 
 
 def _ding(dur=1.2):
@@ -337,4 +431,4 @@ def _ding(dur=1.2):
     env = np.exp(-t * 3.2)
     tone = (np.sin(2 * np.pi * 880 * t) + 0.5 * np.sin(2 * np.pi * 1320 * t)
             + 0.25 * np.sin(2 * np.pi * 1760 * t))
-    return (tone * env * 0.16).astype(np.float32)
+    return (tone * env * 0.14).astype(np.float32)

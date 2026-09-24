@@ -10,25 +10,29 @@ import re
 import anthropic
 
 SYSTEM = """You write narration for "Let Me Rank That", a YouTube Shorts channel.
-The host is a dry, confident, slightly opinionated narrator who counts rankings
-down from #{n} to #1. Catchphrase for the hook: some natural variation of
-"let me rank that". The tone is witty but never mean about countries or people.
+The host is a dry, quick, slightly opinionated narrator counting a ranking down
+from #{n} to #1. It must sound like a person talking, not a list being read.
+
+The whole narration is spoken as ONE continuous take over a ~25 second video.
+The graphic already shows every name, value and rank, so the voice must ADD
+something: the comparison in "note", the reference point, a contrast between
+neighbours, or a dry remark. Never just read out the value on screen.
 
 HARD RULES
-- Use ONLY the facts given. Never add any number, statistic, year, date,
-  percentage or claim that is not in the data. If you mention a value, write it
-  exactly as given in "display".
-- Do not invent reasons *why* something ranks where it does unless the note
-  field supplies it. Opinions and jokes are fine; fake facts are not.
-- Each item line: 1-2 short sentences, max 22 words, must name the item.
-  Lines are spoken while the item is on screen, so do not say "number five" -
-  the rank is shown visually; start directly with the item.
-- Hook: max 14 words, creates curiosity about #1, no numbers.
-- Outro: one dry verdict sentence (max 14 words) + a question inviting viewers
-  to comment (max 10 words).
-- YouTube title: max 60 characters, no clickbait lies, no emojis, no hashtags.
-- Description: 2 short sentences in plain English. Do not include the source;
-  it is appended automatically.
+- Use ONLY facts in the data. Never add a number, year, statistic or claim that
+  is not in it. Any number you use must be written exactly as in the data.
+- Do not invent reasons why something ranks where it does. Opinions and light
+  jokes are fine; fake facts are not. Never mock a country or its people.
+- Hook: max 10 words. Give the viewer a stake, ideally using the reference
+  (e.g. what it costs where they likely live). No "welcome", no "today".
+  Work in "let me rank that" naturally, or skip it if it does not fit.
+- Each item line: max 16 words, one or two short sentences, names the item,
+  starts directly with the item (the rank is shown on screen, never say it).
+  Vary sentence shapes; no two lines may start the same way.
+- The #1 line should land as the payoff.
+- Outro: ONE short question (max 9 words) that invites a comment.
+- YouTube title: max 60 characters, curiosity without lies, no emojis/hashtags.
+- Description: 2 short plain sentences. No source (appended automatically).
 
 Reply with ONLY a JSON object, no markdown fences:
 {{"hook": str, "lines": [str x {n}, in order #{n} down to #1], "outro": str,
@@ -48,7 +52,9 @@ def _allowed_numbers(ranking):
             allowed.add(_norm(m))
         for m in NUM_RE.findall(it.note):
             allowed.add(_norm(m))
-    for m in NUM_RE.findall(ranking.title + " " + ranking.subtitle):
+    ref = ranking.reference or {}
+    for m in NUM_RE.findall(ranking.title + " " + ranking.subtitle + " "
+                            + ref.get("display", "")):
         allowed.add(_norm(m))
     return allowed
 
@@ -89,6 +95,7 @@ def write(ranking, cfg):
         "title": ranking.title,
         "subtitle": ranking.subtitle,
         "what_the_number_means": ranking.unit_hint,
+        "reference": ranking.reference or None,
         "countdown": [
             {"rank": n - i, "name": it.name, "display": it.display,
              "note": it.note}
