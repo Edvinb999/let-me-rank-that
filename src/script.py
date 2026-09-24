@@ -23,12 +23,16 @@ HARD RULES
   is not in it. Any number you use must be written exactly as in the data.
 - Do not invent reasons why something ranks where it does. Opinions and light
   jokes are fine; fake facts are not. Never mock a country or its people.
-- Hook: max 10 words. Give the viewer a stake, ideally using the reference
-  (e.g. what it costs where they likely live). No "welcome", no "today".
-  Work in "let me rank that" naturally, or skip it if it does not fit.
-- Each item line: max 16 words, one or two short sentences, names the item,
-  starts directly with the item (the rank is shown on screen, never say it).
-  Vary sentence shapes; no two lines may start the same way.
+- Hook: max 8 words and NO digits (numbers take too long to say; the
+  reference value is already on screen). #{n} must appear within ~2 seconds.
+  Give the viewer a stake or a tease about #1. No "welcome", no "today".
+  "Let me rank that" is optional; only use it if it sounds natural.
+- Each item line: max 16 words, names the item, never says the rank.
+  Every item has several facts in "note" (separated by ";"). Use at most ONE
+  fact per line and do NOT use the same kind of comparison in two lines in a
+  row - rotate between them, or use none and just react. Variety is the point.
+  No two lines may start with the same word.
+- No dashes (— or –); use commas or full stops. Write for the ear.
 - The #1 line should land as the payoff.
 - Outro: ONE short question (max 9 words) that invites a comment.
 - YouTube title: max 60 characters, curiosity without lies, no emojis/hashtags.
@@ -68,6 +72,14 @@ def _check(data, ranking):
             return f"missing {k}"
     if len(data["yt_title"]) > 70:
         return "title too long"
+    hook = data["hook"]
+    if len(hook.split()) > 9:
+        return "hook longer than 8 words"
+    if re.search(r"\d", hook):
+        return "hook contains a number"
+    firsts = [ln.split()[0].lower().strip(",.") for ln in data["lines"] if ln.split()]
+    if len(set(firsts)) < len(firsts):
+        return "two lines start with the same word"
     allowed = _allowed_numbers(ranking)
     spoken = [data["hook"], data["outro"], *data["lines"]]
     for text in spoken + [data["yt_title"], data["description"]]:
@@ -80,6 +92,12 @@ def _check(data, ranking):
         if key not in line.lower():
             return f"line does not name {item.name!r}: {line}"
     return None
+
+
+def _clean(text):
+    """Speech-friendly: no dashes (they glue caption words together)."""
+    text = re.sub(r"\s*[—–]\s*", ", ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _parse(text):
@@ -120,6 +138,9 @@ def write(ranking, cfg):
         except Exception as e:  # noqa: BLE001
             problem = f"invalid JSON ({e})"
         if not problem:
+            for k in ("hook", "outro"):
+                data[k] = _clean(data[k])
+            data["lines"] = [_clean(x) for x in data["lines"]]
             return data
         print(f"[script] attempt {attempt} rejected: {problem}")
         feedback = (f"\n\nYour previous reply was rejected: {problem}. "

@@ -86,9 +86,9 @@ def split_display(display):
     return display[:m.start()], num, display[m.end():], decimals, "," in m.group(0)
 
 
-def format_counter(parts, frac):
+def format_counter(parts, frac, start=0.0):
     pre, num, post, dec, commas = parts
-    v = num * frac
+    v = start + (num - start) * frac
     s = f"{v:,.{dec}f}" if commas else f"{v:.{dec}f}"
     return f"{pre}{s}{post}"
 
@@ -165,7 +165,7 @@ class Renderer:
         self.brand = cfg["channel"]["name"].upper()
         self.bg = make_background(self.W, self.H, self.accent)
         self.starts = timeline["seg_starts"]
-        self.total = timeline["end"] + 1.2
+        self.total = timeline["end"] + 0.8
         self.ref = ranking.reference or {}
         vals = [abs(i.value) for i in ranking.items]
         if self.ref:
@@ -321,8 +321,13 @@ class Renderer:
             if fl:
                 img.paste(fl, (int(nx), int(name_y - 27)), fl)
                 nx += 90
-            cnt = ease_out(p / 0.8)
-            val_txt = (format_counter(self.parts[rank - 1], cnt)
+            cnt = ease_out(p / 0.7)
+            # count from the previous item (or the reference), not from zero
+            if rank < self.n:
+                start = self.r.items[rank].value
+            else:
+                start = self.ref.get("value", 0) if self.ref else 0
+            val_txt = (format_counter(self.parts[rank - 1], cnt, start)
                        if self.parts[rank - 1] else item.display)
             f_val = font(FONT_DISPLAY, 64)
             d.text((x1 - 34 + dx, name_y), val_txt, font=f_val, fill=WHITE,

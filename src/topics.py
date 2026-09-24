@@ -96,13 +96,31 @@ def bigmac_price(n, most_expensive=True):
     date, rows = _bigmac_latest()
     us = next((r for r in rows if r["iso_a3"] == "USA"), None)
     ref_v = float(us["dollar_price"]) if us else 0
-    items = [Item(r["name"], float(r["dollar_price"]),
-                  f"${float(r['dollar_price']):.2f}",
-                  compare_note(float(r["dollar_price"]), ref_v,
-                               "the United States"),
-                  iso2(r["iso_a3"]))
-             for r in rows if r["iso_a3"] != "USA"]
-    items.sort(key=lambda i: i.value, reverse=most_expensive)
+    priced = sorted((r for r in rows if r["iso_a3"] != "USA"),
+                    key=lambda r: float(r["dollar_price"]),
+                    reverse=most_expensive)
+    top = priced[:n]
+    # the opposite end of the table, for cross-comparisons
+    other = sorted(priced, key=lambda r: float(r["dollar_price"]),
+                   reverse=not most_expensive)[0]
+    other_v = float(other["dollar_price"])
+    items = []
+    for idx, r in enumerate(top):
+        v = float(r["dollar_price"])
+        facts = [compare_note(v, ref_v, "the United States")]
+        if idx + 1 < len(top):  # vs the item ranked just below it
+            below = top[idx + 1]
+            diff = abs(v - float(below["dollar_price"]))
+            facts.append(f"${diff:.2f} {'more' if most_expensive else 'less'}"
+                         f" than {below['name']}")
+        ratio = max(v, other_v) / min(v, other_v)
+        if most_expensive:
+            facts.append(f"{ratio:.1f} times the price in {other['name']}")
+        else:
+            facts.append(f"one Big Mac in {other['name']} costs as much as "
+                         f"{ratio:.1f} here")
+        items.append(Item(r["name"], v, f"${v:.2f}", "; ".join(facts),
+                          iso2(r["iso_a3"])))
     word = "Most expensive" if most_expensive else "Cheapest"
     tid = "bigmac-expensive" if most_expensive else "bigmac-cheapest"
     return Ranking(
