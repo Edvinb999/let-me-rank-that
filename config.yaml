@@ -1,0 +1,30 @@
+channel:
+  name: "Let Me Rank That"
+  handle: "@letmerankthat"
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+  items: 5            # countdown length (#5 -> #1)
+  pad_after_line: 0.45  # seconds of silence after each narrated line
+
+script:
+  model: "claude-sonnet-5"
+  max_tokens: 2000
+  attempts: 4
+
+voice:
+  # Cheaper per-character model than Plot Speedrun's eleven_v3 (shared credit pool).
+  model: "eleven_flash_v2_5"
+  voice_name: "Brian"            # looked up by name in your ElevenLabs voices
+  voice_id: "nPczCjzI2devNBz1zQrb" # tried first; falls back to name lookup
+  stability: 0.45
+  similarity_boost: 0.8
+  style: 0.25
+  speed: 1.08
+
+pillars:
+  money:   {accent: "#2BD67B", label: "MONEY"}
+  animals: {accent: "#FF9F1C", label: "ANIMALS"}
+  records: {accent: "#9B6BFF", label: "RECORDS"}
