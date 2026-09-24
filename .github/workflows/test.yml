@@ -1,0 +1,37 @@
+name: Test render (no upload)
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Topic id (blank = random). Options: bigmac-expensive, bigmac-cheapest"
+        required: false
+        default: ""
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install Python packages
+        run: pip install -r requirements.txt
+      - name: Build test Short
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: |
+          if [ -n "${{ github.event.inputs.topic }}" ]; then
+            python -m src.main --test --topic "${{ github.event.inputs.topic }}"
+          else
+            python -m src.main --test
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-short
+          path: out/*
