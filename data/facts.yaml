@@ -1,0 +1,120 @@
+# Curated, source-checked rankings for the ANIMALS and RECORDS pillars.
+# Rules: every value has a source; `disputed: true` marks estimates the
+# narration must present as estimates. Order does not matter (code sorts).
+# Checked 2026-09-25. Re-check buildings yearly (new towers complete).
+
+topics:
+
+  - id: world-tallest-buildings
+    pillar: records
+    title: "Tallest buildings on Earth"
+    subtitle: "Completed buildings · architectural height"
+    unit_hint: "height to the architectural top in metres (spires count, antennas don't)"
+    unit: "m"
+    decimals: 0
+    source: "Source: CVU Skyscraper Center (2026)"
+    source_long: "Data: Council on Vertical Urbanism (formerly CTBUH), The Skyscraper Center — https://www.skyscrapercenter.com/buildings"
+    reference: {name: "Eiffel Tower", spoken: "the Eiffel Tower", value: 330, display: "330 m", code: "fr"}
+    items:
+      - {name: "Burj Khalifa", value: 828, code: "ae", note: "Dubai, completed 2010"}
+      - {name: "Merdeka 118", value: 679, code: "my", note: "Kuala Lumpur, completed 2023"}
+      - {name: "Shanghai Tower", value: 632, code: "cn", note: "Shanghai"}
+      - {name: "Makkah Clock Tower", value: 601, code: "sa", note: "Mecca"}
+      - {name: "Ping An Finance Center", value: 599, code: "cn", note: "Shenzhen"}
+
+  - id: eu-tallest-buildings
+    pillar: records
+    title: "Tallest buildings in the EU"
+    subtitle: "Completed buildings · height in metres"
+    unit_hint: "building height in metres"
+    unit: "m"
+    decimals: 0
+    source: "Source: Skyscraper Center via Wikipedia (2026)"
+    source_long: "Data: List of tallest buildings in Europe (Wikipedia, citing the CVU Skyscraper Center) — https://en.wikipedia.org/wiki/List_of_tallest_buildings_in_Europe"
+    items:
+      - {name: "Varso Tower", value: 310, code: "pl", note: "Warsaw, completed 2022, tallest in the EU"}
+      - {name: "Commerzbank Tower", value: 259, code: "de", note: "Frankfurt, completed 1997"}
+      - {name: "Messeturm", value: 256.5, display: "256.5 m", code: "de", note: "Frankfurt, completed 1990"}
+      - {name: "Torre de Cristal", value: 249, code: "es", note: "Madrid, completed 2008"}
+      - {name: "Torre Cepsa", value: 248.3, display: "248.3 m", code: "es", note: "Madrid, completed 2008"}
+
+  - id: highest-mountains
+    pillar: records
+    title: "Highest mountains on Earth"
+    subtitle: "Height above sea level"
+    unit_hint: "summit elevation above sea level in metres"
+    unit: "m"
+    decimals: 0
+    source: "Source: official surveys via Wikipedia"
+    source_long: "Data: List of highest mountains on Earth (Wikipedia); Everest per the 2020 China–Nepal survey"
+    reference: {name: "Kilimanjaro", value: 5895, display: "5,895 m", code: "tz"}
+    items:
+      - {name: "Mount Everest", value: 8849, note: "Nepal and China border, 2020 survey"}
+      - {name: "K2", value: 8611, note: "Pakistan and China border"}
+      - {name: "Kangchenjunga", value: 8586, note: "Nepal and India border"}
+      - {name: "Lhotse", value: 8516, note: "Nepal and China border, next to Everest"}
+      - {name: "Makalu", value: 8485, note: "Nepal and China border"}
+
+  - id: largest-countries
+    pillar: records
+    title: "Largest countries by area"
+    subtitle: "Total area incl. inland water"
+    unit_hint: "total area in square kilometres"
+    unit: "km²"
+    decimals: 0
+    source: "Source: CIA World Factbook"
+    source_long: "Data: CIA World Factbook, total area — https://www.cia.gov/the-world-factbook/"
+    items:
+      - {name: "Russia", value: 17098242, display: "17.1M km²", code: "ru"}
+      - {name: "Canada", value: 9984670, display: "9.98M km²", code: "ca"}
+      - {name: "United States", value: 9833517, display: "9.83M km²", code: "us", note: "ranking against China depends on how coastal and territorial waters are counted"}
+      - {name: "China", value: 9596960, display: "9.60M km²", code: "cn"}
+      - {name: "Brazil", value: 8515770, display: "8.52M km²", code: "br"}
+
+  - id: deepest-lakes
+    pillar: records
+    title: "Deepest lakes on Earth"
+    subtitle: "Maximum depth · surface lakes"
+    unit_hint: "maximum depth in metres"
+    unit: "m"
+    decimals: 0
+    source: "Source: Wikipedia list of deepest lakes"
+    source_long: "Data: List of lakes by depth (Wikipedia). Subglacial Lake Vostok excluded (under ice)."
+    items:
+      - {name: "Lake Baikal", value: 1642, code: "ru", note: "Siberia"}
+      - {name: "Lake Tanganyika", value: 1470, note: "shared by four African countries"}
+      - {name: "Caspian Sea", value: 1025, note: "technically the world's largest lake"}
+      - {name: "O'Higgins/San Martín", value: 836, note: "on the Chile and Argentina border"}
+      - {name: "Lake Malawi", value: 706, note: "East Africa"}
+
+  - id: fastest-land-animals
+    pillar: animals
+    title: "Fastest land animals"
+    subtitle: "Top recorded sprint speed"
+    unit_hint: "top sprint speed in km/h; field measurements vary"
+    unit: "km/h"
+    decimals: 0
+    source: "Sources: Wikipedia, Britannica"
+    source_long: "Data: Fastest animals (Wikipedia; cheetah = highest reliably recorded speed), Britannica 'The Fastest Animals on Earth'. Speeds are field estimates."
+    items:
+      - {name: "Cheetah", value: 104, note: "highest reliably recorded speed; can only sprint a few hundred metres"}
+      - {name: "Pronghorn", value: 88.5, display: "88.5 km/h", note: "best long-distance runner, holds high speed for kilometres"}
+      - {name: "Springbok", value: 88, disputed: true}
+      - {name: "Blue wildebeest", value: 80, disputed: true}
+      - {name: "Lion", value: 80, disputed: true, note: "only in short bursts"}
+
+  - id: longest-living-animals
+    pillar: animals
+    title: "Longest-living animals"
+    subtitle: "Oldest known individual"
+    unit_hint: "age of the oldest known individual in years"
+    unit: "years"
+    decimals: 0
+    source: "Sources: Science (2016), NPR, Ocean Conservancy"
+    source_long: "Data: Nielsen et al. 2016, Science (Greenland shark, radiocarbon estimate ±120 years); Ming the ocean quahog (507 years, shell growth lines); bowhead whale 211 years (eye-lens dating); rougheye rockfish 205 years (WDFW); Jonathan the tortoise (estimated)."
+    items:
+      - {name: "Ocean quahog clam", value: 507, note: "a clam nicknamed Ming, age counted from growth lines in its shell"}
+      - {name: "Greenland shark", value: 392, display: "~392 years", disputed: true, note: "radiocarbon estimate with a margin of 120 years either way"}
+      - {name: "Bowhead whale", value: 211, note: "longest-living mammal"}
+      - {name: "Rougheye rockfish", value: 205, note: "a deep-water Pacific fish"}
+      - {name: "Giant tortoise", value: 190, display: "~190 years", disputed: true, note: "Jonathan, a tortoise on St Helena; birth year is estimated"}

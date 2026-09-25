@@ -32,6 +32,8 @@ HARD RULES
   fact per line and do NOT use the same kind of comparison in two lines in a
   row - rotate between them, or use none and just react. Variety is the point.
   No two lines may start with the same word.
+- If a note says a figure is an estimate, say so naturally ("roughly",
+  "an estimated", "about") and never present it as exact.
 - No dashes (— or –); use commas or full stops. Write for the ear.
 - The #1 line should land as the payoff.
 - Outro: ONE short question (max 9 words) that invites a comment.
@@ -87,9 +89,15 @@ def _check(data, ranking):
             if _norm(m) not in allowed:
                 return f"unsupported number {m!r} in: {text}"
     # each line must mention its item (lines are #n..#1, items[0] is #1)
+    generic = {"lake", "mount", "tower", "the", "center", "centre", "blue",
+               "giant", "clam", "fish", "whale", "shark", "united"}
     for line, item in zip(data["lines"], reversed(ranking.items)):
-        key = item.name.split(",")[0].split("(")[0].strip().lower()
-        if key not in line.lower():
+        low = line.lower()
+        tokens = [w for w in re.split(r"[\s/'’-]+", item.name.lower())
+                  if len(w) >= 3 and w not in generic]
+        if tokens and not any(t in low for t in tokens):
+            return f"line does not name {item.name!r}: {line}"
+        if not tokens and item.name.lower() not in low:
             return f"line does not name {item.name!r}: {line}"
     return None
 

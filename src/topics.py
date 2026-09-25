@@ -8,6 +8,7 @@ import csv
 import io
 import random
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import requests
 
@@ -139,10 +140,69 @@ def bigmac_price(n, most_expensive=True):
     )
 
 
+# -------------------------------------------------------- curated facts ----
+FACTS_FILE = Path(__file__).resolve().parent.parent / "data/facts.yaml"
+
+
+def _fmt(v, decimals, unit):
+    s = f"{v:,.{decimals}f}"
+    return f"{s} {unit}".strip()
+
+
+def curated(topic, n):
+    """Build a Ranking from data/facts.yaml (values and sources are curated)."""
+    unit, dec = topic.get("unit", ""), topic.get("decimals", 0)
+    raw = sorted(topic["items"], key=lambda i: i["value"], reverse=True)[:n]
+    last = raw[-1]
+    items = []
+    for idx, it in enumerate(raw):
+        facts = []
+        if it.get("note"):
+            facts.append(it["note"])
+        if it.get("disputed"):
+            facts.append("this figure is an estimate; sources differ")
+        if idx + 1 < len(raw):
+            below = raw[idx + 1]
+            gap = it["value"] - below["value"]
+            if gap > 0 and not (it.get("disputed") or below.get("disputed")):
+                gdisp = (it["value"] / below["value"] - 1) * 100
+                if unit in ("km²",):
+                    facts.append(f"{gdisp:.0f}% bigger than {below['name']}")
+                else:
+                    gdec = 1 if abs(gap - round(gap)) > 1e-9 else 0
+                    facts.append(f"{_fmt(gap, gdec, unit)} "
+                                 f"more than {below['name']}")
+        if idx == 0 and last["value"] and it["value"] / last["value"] >= 1.15:
+            facts.append(f"{it['value'] / last['value']:.1f} times "
+                         f"{last['name']}")
+        ref = topic.get("reference")
+        if ref and ref.get("value") and it["value"] / ref["value"] >= 1.15:
+            facts.append(f"{it['value'] / ref['value']:.1f} times "
+                         f"{ref.get('spoken', ref['name'])}")
+        items.append(Item(it["name"], float(it["value"]),
+                          it.get("display") or _fmt(it["value"], dec, unit),
+                          "; ".join(facts), it.get("code", "")))
+    return Ranking(
+        topic_id=topic["id"], pillar=topic["pillar"], title=topic["title"],
+        subtitle=topic["subtitle"], unit_hint=topic["unit_hint"],
+        items=items, source=topic["source"], source_long=topic["source_long"],
+        reference=topic.get("reference") or {},
+    )
+
+
+def _load_curated():
+    import yaml
+    if not FACTS_FILE.exists():
+        return {}
+    data = yaml.safe_load(FACTS_FILE.read_text())
+    return {t["id"]: (lambda n, t=t: curated(t, n)) for t in data["topics"]}
+
+
 # -------------------------------------------------------------- registry ----
 TOPICS = {
     "bigmac-expensive": lambda n: bigmac_price(n, True),
     "bigmac-cheapest": lambda n: bigmac_price(n, False),
+    **_load_curated(),
 }
 
 

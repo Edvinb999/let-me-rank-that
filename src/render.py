@@ -349,12 +349,11 @@ class Renderer:
         # reference line drawn over the bars
         if self.ref:
             ref_x = bar_x0 + (bar_x1 - bar_x0) * abs(self.ref["value"]) / self.max_val
-            yb0, yb1 = top + 96, top + self.n * (row_h + gap) - gap - 20
-            y = yb0
-            while y < yb1:
-                d.line([(ref_x, y), (ref_x, min(y + 14, yb1))],
-                       fill=(255, 255, 255, 170), width=3)
-                y += 24
+            for rank in range(1, self.n + 1):
+                by = top + (rank - 1) * (row_h + gap) + 112
+                for y in range(by - 10, by + 34, 11):
+                    d.line([(ref_x, y), (ref_x, y + 6)],
+                           fill=(255, 255, 255, 200), width=4)
 
         # flash on #1
         t1 = self.reveal_time(1)
