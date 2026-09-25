@@ -45,3 +45,15 @@ manager:
   weight_min: 0.4
   weight_max: 2.5
   smoothing: 0.5             # new = old * s + target * (1 - s)
+
+# Numbered series per pillar (title suffix "| Money Ranked #12")
+series:
+  money: "Money Ranked"
+  animals: "Animal Ranked"
+  records: "Record Ranked"
+
+# One public playlist per pillar, created automatically on first use
+playlists:
+  money:   {title: "Money Rankings", description: "Top 5 countdowns on prices, costs and money around the world. Real data, source on screen."}
+  animals: {title: "Animal Rankings", description: "Top 5 countdowns on the fastest, oldest and most extreme animals. Real data, source on screen."}
+  records: {title: "Record Rankings", description: "Top 5 countdowns on the tallest, deepest and biggest things on Earth. Real data, source on screen."}

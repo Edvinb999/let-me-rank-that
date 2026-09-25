@@ -188,8 +188,12 @@ class Renderer:
             out.append(cur)
         return out
 
+    # segments: 0 hook | 1..n-1 = ranks n..2 | n = subscribe ask | n+1 = #1 | n+2 outro
+    def reveal_seg(self, rank):
+        return self.n + 1 if rank == 1 else self.n - rank + 1
+
     def reveal_time(self, rank):
-        return self.starts[self.n - rank + 1]
+        return self.starts[self.reveal_seg(rank)]
 
     def segment_at(self, t):
         idx = 0
@@ -256,6 +260,11 @@ class Renderer:
                             radius=27, fill=(*acc, 40), outline=(*acc, 160),
                             width=2)
         d.text((W / 2, 123), label, font=f_brand, fill=WHITE, anchor="mm")
+        # CTA step 1: a small bell that rings once (asks nothing)
+        swing = 0.0
+        if 1.2 <= t < 2.4:
+            swing = math.sin((t - 1.2) * 18) * (1 - (t - 1.2) / 1.2) * 18
+        draw_bell(d, (W + tw) / 2 + 62, 123, 20, swing, acc)
         k = ease_out_back(t / 0.45)
         title = self.r.title.upper()
         f_title = fit_font(d, title, FONT_DISPLAY, int(118 * max(k, 0.01)),
@@ -290,7 +299,7 @@ class Renderer:
             rt = self.reveal_time(rank)
             p = t - rt
             revealed = p >= 0
-            active = revealed and self.segment_at(t) == self.n - rank + 1
+            active = revealed and self.segment_at(t) == self.reveal_seg(rank)
             is_one = rank == 1 and revealed
             slide = ease_out(p / 0.3) if revealed else 0
             dx = int((1 - slide) * 90) if revealed else 0
@@ -369,6 +378,22 @@ class Renderer:
             img = big.crop((ox, oy, ox + W, oy + H))
             d = ImageDraw.Draw(img, "RGBA")
 
+        # CTA step 2: SUBSCRIBE pill while the ask is spoken (just before #1)
+        cta = self.n
+        if self.segment_at(t) == cta:
+            p = t - self.starts[cta]
+            k = ease_out_back(p / 0.3)
+            f_cta = font(FONT_DISPLAY, max(8, int(56 * k)))
+            label = "SUBSCRIBE"
+            lw = d.textlength(label, font=f_cta)
+            cx, cy = W / 2, 1470
+            d.rounded_rectangle([cx - lw / 2 - 70, cy - 42 * k, cx + lw / 2 + 34,
+                                 cy + 42 * k], radius=int(42 * k) or 1,
+                                fill=(230, 33, 23, 255))
+            draw_bell(d, cx - lw / 2 - 36, cy, int(17 * k) or 1, 0,
+                      (255, 255, 255), solid=True)
+            d.text((cx + 18, cy + 2), label, font=f_cta, fill=WHITE,
+                   anchor="mm")
         self.draw_captions(d, t)
         d.text((W / 2, 1840), self.r.source, font=font(FONT_TEXT, 28, "Medium"),
                fill=GREY, anchor="mm")
@@ -419,6 +444,25 @@ class Renderer:
         if proc.returncode:
             raise RuntimeError("ffmpeg failed")
         return out_path
+
+
+def draw_bell(d, cx, cy, r, angle_deg, color, solid=False):
+    """Tiny notification bell. Rotates by angle_deg around its top."""
+    a = math.radians(angle_deg)
+    top = (cx, cy - r)
+
+    def rot(x, y):
+        dx, dy = x - top[0], y - top[1]
+        return (top[0] + dx * math.cos(a) - dy * math.sin(a),
+                top[1] + dx * math.sin(a) + dy * math.cos(a))
+    body = [rot(cx - r * 0.25, cy - r * 0.8), rot(cx + r * 0.25, cy - r * 0.8),
+            rot(cx + r * 0.7, cy + r * 0.2), rot(cx + r * 0.95, cy + r * 0.6),
+            rot(cx - r * 0.95, cy + r * 0.6), rot(cx - r * 0.7, cy + r * 0.2)]
+    fill = (*color, 255) if solid else (*color, 230)
+    d.polygon(body, fill=fill)
+    bx, by = rot(cx, cy + r * 0.85)
+    d.ellipse([bx - r * 0.22, by - r * 0.22, bx + r * 0.22, by + r * 0.22],
+              fill=fill)
 
 
 def _whoosh(rng, dur=0.4):

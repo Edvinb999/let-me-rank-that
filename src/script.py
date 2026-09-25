@@ -37,13 +37,18 @@ HARD RULES
   "an estimated", "about") and never present it as exact.
 - No dashes (— or –); use commas or full stops. Write for the ear.
 - The #1 line should land as the payoff.
+- Subscribe ask ("cta"): spoken right before #1 is revealed, at peak
+  tension. Max 10 words, must contain "subscribe", tied to THIS ranking,
+  e.g. "Subscribe if you already know who takes number one." It must NOT
+  name or hint at the #1 item and contains no digits.
 - Outro: ONE short question (max 9 words) that invites a comment.
 - YouTube title: max 60 characters, curiosity without lies, no emojis/hashtags.
 - Description: 2 short plain sentences. No source (appended automatically).
 
 Reply with ONLY the JSON object below: no preamble, no explanation, no
 markdown fences. If a rule seems impossible, still return your best JSON.
-{{"hook": str, "lines": [str x {n}, in order #{n} down to #1], "outro": str,
+{{"hook": str, "lines": [str x {n}, in order #{n} down to #1], "cta": str,
+  "outro": str,
   "yt_title": str, "description": str, "tags": [5-8 short strings]}}"""
 
 NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
@@ -71,11 +76,21 @@ def _check(data, ranking):
     n = len(ranking.items)
     if not isinstance(data.get("lines"), list) or len(data["lines"]) != n:
         return f"expected {n} lines"
-    for k in ("hook", "outro", "yt_title", "description"):
+    for k in ("hook", "cta", "outro", "yt_title", "description"):
         if not isinstance(data.get(k), str) or not data[k].strip():
             return f"missing {k}"
     if len(data["yt_title"]) > 70:
         return "title too long"
+    cta = data["cta"]
+    if "subscribe" not in cta.lower():
+        return "cta must contain 'subscribe'"
+    if len(cta.split()) > 11 or re.search(r"\d", cta):
+        return "cta too long or contains a number"
+    top = ranking.items[0]
+    for nm in [top.name] + list(top.aliases or []):
+        for w in re.split(r"[\s/'’-]+", nm.lower()):
+            if len(w) >= 4 and w in cta.lower():
+                return "cta gives away #1"
     hook = data["hook"]
     if len(hook.split()) > 9:
         return "hook longer than 8 words"
@@ -85,7 +100,7 @@ def _check(data, ranking):
     if len(set(firsts)) < len(firsts):
         return "two lines start with the same word"
     allowed = _allowed_numbers(ranking)
-    spoken = [data["hook"], data["outro"], *data["lines"]]
+    spoken = [data["hook"], data["cta"], data["outro"], *data["lines"]]
     for text in spoken + [data["yt_title"], data["description"]]:
         for m in NUM_RE.findall(text):
             if _norm(m) not in allowed:
@@ -154,7 +169,7 @@ def write(ranking, cfg):
         except Exception as e:  # noqa: BLE001
             problem = f"invalid JSON ({e})"
         if not problem:
-            for k in ("hook", "outro"):
+            for k in ("hook", "cta", "outro"):
                 data[k] = _clean(data[k])
             data["lines"] = [_clean(x) for x in data["lines"]]
             return data

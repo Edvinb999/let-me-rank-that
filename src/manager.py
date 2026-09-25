@@ -102,10 +102,24 @@ def run():
                  if dt.date.fromisoformat(x["published"][:10]) > week_ago]
     lines = [f"# Let Me Rank That — weekly report {today}", ""]
     tv = sum(x["views"] for x in scored)
+    ts = sum(x["subs"] for x in scored)
     lines += [f"- Uploads total: {len(scored)} (this week: {len(this_week)})",
               f"- Views total: {tv:,}",
-              f"- Subscribers gained (all videos): "
-              f"{sum(x['subs'] for x in scored)}", ""]
+              f"- Subscribers gained (all videos): {ts}",
+              f"- Subscribers per 1,000 views: "
+              f"{(ts / tv * 1000) if tv else 0:.2f}", ""]
+    lines += ["## By pillar", "",
+              "| Pillar | Videos | Views | Avg retention | Subs / 1,000 views |",
+              "|---|---:|---:|---:|---:|"]
+    for pil in sorted({x["pillar"] for x in scored}):
+        grp = [x for x in scored if x["pillar"] == pil]
+        v = sum(x["views"] for x in grp)
+        sb = sum(x["subs"] for x in grp)
+        rets = [x["retention"] for x in grp if x["views"]]
+        lines.append(f"| {pil} | {len(grp)} | {v:,} | "
+                     f"{(mean(rets) if rets else 0):.0f}% | "
+                     f"{(sb / v * 1000) if v else 0:.2f} |")
+    lines.append("")
     lines += ["## Top videos", "", "| Views | Retention | Title | Pillar | Voice |",
               "|---:|---:|---|---|---|"]
     for x in sorted(scored, key=lambda x: -x["views"])[:8]:
@@ -122,6 +136,13 @@ def run():
     lines += ["", "Score = views/day (first 14 days) × retention factor. "
               "Weights are clipped to "
               f"{mc['weight_min']}–{mc['weight_max']} and smoothed."]
+    try:
+        from src import playlists
+        n_added = playlists.backfill(hist, cfg)
+        lines += ["", f"Playlists: {n_added} video(s) added to their pillar "
+                  "playlist this week."]
+    except Exception as e:  # noqa: BLE001
+        lines += ["", f"Playlists: backfill failed ({e})."]
     report = "\n".join(lines)
     rp = ROOT / "reports" / f"{today}.md"
     rp.parent.mkdir(exist_ok=True)

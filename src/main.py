@@ -19,6 +19,7 @@ def mock_script(r):
     return {
         "hook": f"You pay {r.reference.get('display', 'a lot')}. Let me rank that.",
         "lines": [f"{it.name}: {it.note}." for it in reversed(r.items)],
+        "cta": "Subscribe if you already know who takes the top spot.",
         "outro": "Which one surprised you most?",
         "yt_title": f"{r.title}: top {n} ranked",
         "description": "A mock script for layout testing.",
@@ -57,7 +58,9 @@ def build(topic_id=None, mock=False, out_dir="out", publish=False):
             failed.append(ranking.topic_id)
     else:
         raise RuntimeError("No valid script after 3 topics")
-    texts = [script["hook"], *script["lines"], script["outro"]]
+    # spoken order: hook, #n..#2, subscribe ask (peak tension), #1, outro
+    texts = [script["hook"], *script["lines"][:-1], script["cta"],
+             script["lines"][-1], script["outro"]]
     print("[main] narration:\n   " + "\n   ".join(texts))
 
     from src import tts
@@ -82,12 +85,22 @@ def build(topic_id=None, mock=False, out_dir="out", publish=False):
     video = render.Renderer(ranking, script, timeline, cfg).render(
         audio, out / f"{ranking.topic_id}.mp4")
 
+    from src import state
+    series = cfg["series"][ranking.pillar]
+    number = 1 + sum(1 for h in state.history() if h["pillar"] == ranking.pillar)
+    title = f"{script['yt_title'].strip()} | {series} #{number}"
+    question = script["outro"].strip()
     description = (script["description"].strip() + "\n\n"
-                   + ranking.source_long + "\n\n#shorts #ranking")
+                   + ranking.source_long + "\n\n"
+                   + "Subscribe for a new ranking every day.\n"
+                   + f"#shorts #ranking #{ranking.pillar}\n\n"
+                   + question)
     meta = {
         "topic_id": ranking.topic_id,
         "pillar": ranking.pillar,
-        "title": script["yt_title"].strip(),
+        "title": title,
+        "series": series,
+        "series_number": number,
         "description": description,
         "reference": ranking.reference,
         "tags": script.get("tags", []),
@@ -104,11 +117,16 @@ def build(topic_id=None, mock=False, out_dir="out", publish=False):
 
     if publish:
         import datetime as dt
-        from src import state, upload
+        from src import playlists, upload
         vid = upload.upload(video, meta["title"], meta["description"],
                             meta["tags"] + ["ranking", "top 5", "shorts"])
+        try:
+            playlists.add(vid, ranking.pillar, cfg)
+        except Exception as e:  # noqa: BLE001  (manager backfills weekly)
+            print(f"[main] playlist add failed, manager will retry: {e}")
         hist = state.history()
         hist.append({"video_id": vid, "topic_id": ranking.topic_id,
+                     "series_number": number,
                      "pillar": ranking.pillar, "voice": voice["name"],
                      "title": meta["title"],
                      "published": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z"})
