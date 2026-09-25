@@ -1,0 +1,54 @@
+# Sixth channel: Let Me Rank That (@letmerankthat), data ranking Shorts
+
+- Channel: **Let Me Rank That**, handle @letmerankthat, owned by edvinburkland@gmail.com. General audience, NOT made for kids. Went live 2026-09-25.
+- Format: Top-5 countdown Shorts (#5 → #1), about 20–30 s, 1080×1920 at 30 fps.
+  - Everything is rendered in code (factory type A + AI voice): an animated leaderboard with flags, counters that count from the previous value, bars, a dashed reference line, word-by-word captions, a push-in on each reveal, and a flash + ding on #1.
+  - Narrator persona: dry, quick, slightly opinionated.
+- Pillars (base weight 1.0 each): **money** (green), **animals** (orange), **records** (purple).
+- **Core rule: every number comes from code/data, never from Claude.**
+  - Claude only writes narration around the numbers.
+  - script.py rejects any number not in the data. It also rejects hooks over 8 words or containing digits, and two lines starting with the same word.
+  - Comparisons (vs a reference, vs the neighbouring item, ratios) are computed in code.
+- Topics (9):
+  - Money: bigmac-expensive and bigmac-cheapest. Live data from The Economist Big Mac Index on GitHub, updated automatically; US price is the reference.
+  - Curated, in data/facts.yaml, with a source per topic and `disputed` + `aliases` fields:
+    - world-tallest-buildings (Eiffel Tower reference)
+    - eu-tallest-buildings
+    - highest-mountains (Kilimanjaro reference)
+    - largest-countries
+    - deepest-lakes
+    - fastest-land-animals
+    - longest-living-animals
+  - Figures NOT re-checked in the build session, to spot-check:
+    - Shanghai Tower, Makkah Clock Tower and Ping An heights
+    - mountain heights
+    - lake depths
+    - country areas (CIA)
+  - Bite force was deliberately excluded: the "3,700 psi" figure is really lbf, and only crocodilians have been measured.
+- New curated topics are added only with a source for every number. Claude researches them on request; this is never automatic.
+- Repo: private **Edvinb999/let-me-rank-that**.
+  - Code: src/topics.py, script.py, tts.py, render.py, picker.py, upload.py, manager.py, state.py, main.py.
+  - Assets: Anton + Inter fonts (OFL); flags in assets/flags.zip (flag-icons, MIT; zipped because the web uploader has a 100-file limit).
+- Workflows (pasted in the browser):
+  - test.yml: manual render, no upload, output as an artifact.
+  - shorts.yml: 15:00 and 21:00 UTC daily; commits state/history.json.
+  - manage.yml: Mondays 07:30 UTC.
+- Selection: no topic within the last 5 uploads, never the same pillar twice in a row, prefers rankings with spread (≥12%) or a reference. If the script fails for a topic, it tries another topic (up to 3).
+- Voice: ElevenLabs **eleven_multilingual_v2**, whole narration as ONE take via /with-timestamps (word timings drive the reveals and captions), speed 1.1, loudnorm to −14 LUFS.
+  - A/B test: Brian (nPczCjzI2devNBz1zQrb) vs Adam (pNInz6obpgDQGcFmaJgB); Brian is the fallback.
+  - Roughly 300 characters per Short, sharing the ElevenLabs credit pool with Plot Speedrun (131k/month plan).
+- Script: Claude model claude-sonnet-5, max_tokens 4000, 4 attempts, tolerant JSON parsing, raw reply logged on failure. Uses its own ANTHROPIC_API_KEY in the Console "YouTube" workspace ($10/month limit shared with Plot Speedrun).
+- Weekly manager:
+  - Score = views/day over the first 14 days × a retention factor (average viewed / 70%, clipped 0.5–1.5).
+  - Re-weights pillar, topic and voice (needs ≥2 videos older than 2 days), clipped 0.4–2.5, smoothing 0.5.
+  - Writes reports/<date>.md and opens a GitHub issue labelled weekly-report, which is emailed.
+- Secrets: YT_CLIENT_ID and YT_CLIENT_SECRET (shared "Night On Pause Uploader" Desktop client in "My First Project", app In production), YT_REFRESH_TOKEN (own token for this channel, scopes youtube, youtube.force-ssl, yt-analytics.readonly), ANTHROPIC_API_KEY, ELEVENLABS_API_KEY.
+- Decisions and history:
+  - Edvin chose data rankings in code over stock/AI-image rankings (policy + cost).
+  - v1 review: flat data, weak hook, narration only repeated the numbers on screen, dead air, too quiet. Fixed in v2.
+  - The cheapest Big Mac video was weaker than the expensive one (monotone comparisons, clumsy hook). Fixed with rotating facts and a stricter hook rule.
+  - First publish failed: no JSON in the reply plus an over-strict name check. Fixed with aliases and topic fallback.
+- Open items:
+  - Add the channel to the Monday review task.
+  - Spot-check the unverified curated figures.
+  - Handling code changes: Claude in chat can't push to GitHub; Edvin uploads the zips. Consider Claude Code or Cowork for direct commits.
