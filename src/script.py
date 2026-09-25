@@ -27,7 +27,8 @@ HARD RULES
   reference value is already on screen). #{n} must appear within ~2 seconds.
   Give the viewer a stake or a tease about #1. No "welcome", no "today".
   "Let me rank that" is optional; only use it if it sounds natural.
-- Each item line: max 16 words, names the item, never says the rank.
+- Each item line: max 16 words, names the item (its name or one of its
+  "also_called" names), never says the rank.
   Every item has several facts in "note" (separated by ";"). Use at most ONE
   fact per line and do NOT use the same kind of comparison in two lines in a
   row - rotate between them, or use none and just react. Variety is the point.
@@ -40,7 +41,8 @@ HARD RULES
 - YouTube title: max 60 characters, curiosity without lies, no emojis/hashtags.
 - Description: 2 short plain sentences. No source (appended automatically).
 
-Reply with ONLY a JSON object, no markdown fences:
+Reply with ONLY the JSON object below: no preamble, no explanation, no
+markdown fences. If a rule seems impossible, still return your best JSON.
 {{"hook": str, "lines": [str x {n}, in order #{n} down to #1], "outro": str,
   "yt_title": str, "description": str, "tags": [5-8 short strings]}}"""
 
@@ -93,7 +95,9 @@ def _check(data, ranking):
                "giant", "clam", "fish", "whale", "shark", "united"}
     for line, item in zip(data["lines"], reversed(ranking.items)):
         low = line.lower()
-        tokens = [w for w in re.split(r"[\s/'’-]+", item.name.lower())
+        names = [item.name] + list(item.aliases or [])
+        tokens = [w for nm in names
+                  for w in re.split(r"[\s/'’-]+", nm.lower())
                   if len(w) >= 3 and w not in generic]
         if tokens and not any(t in low for t in tokens):
             return f"line does not name {item.name!r}: {line}"
@@ -109,10 +113,13 @@ def _clean(text):
 
 
 def _parse(text):
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.M).strip()
-    start, end = text.find("{"), text.rfind("}")
-    return json.loads(text[start:end + 1])
+    """Take the first complete JSON object in the reply, ignoring any
+    markdown fences or stray text around it."""
+    start = text.find("{")
+    if start < 0:
+        raise ValueError("no JSON object in reply")
+    data, _ = json.JSONDecoder().raw_decode(text[start:])
+    return data
 
 
 def write(ranking, cfg):
@@ -124,7 +131,7 @@ def write(ranking, cfg):
         "reference": ranking.reference or None,
         "countdown": [
             {"rank": n - i, "name": it.name, "display": it.display,
-             "note": it.note}
+             "note": it.note, "also_called": it.aliases or None}
             for i, it in enumerate(reversed(ranking.items))
         ],
     }
@@ -139,7 +146,8 @@ def write(ranking, cfg):
                        "DATA:\n" + json.dumps(payload, ensure_ascii=False,
                                                indent=1) + feedback}],
         )
-        text = "".join(b.text for b in msg.content if b.type == "text")
+        text = "".join(getattr(b, "text", "") for b in msg.content
+                       if b.type == "text")
         try:
             data = _parse(text)
             problem = _check(data, ranking)
@@ -151,6 +159,10 @@ def write(ranking, cfg):
             data["lines"] = [_clean(x) for x in data["lines"]]
             return data
         print(f"[script] attempt {attempt} rejected: {problem}")
+        if problem.startswith("invalid JSON"):
+            kinds = [b.type for b in msg.content]
+            print(f"   stop_reason={msg.stop_reason} blocks={kinds} "
+                  f"reply starts: {text[:300]!r}")
         feedback = (f"\n\nYour previous reply was rejected: {problem}. "
                     "Fix it and follow the HARD RULES exactly.")
     raise RuntimeError("Could not get a valid script")

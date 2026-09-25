@@ -23,6 +23,7 @@ class Item:
     display: str          # how the number is shown and spoken, e.g. "$7.99"
     note: str = ""        # verified context computed from the data (never invented)
     code: str = ""        # ISO-2 country code -> flag, "" for non-countries
+    aliases: list = field(default_factory=list)  # other accepted names
 
 
 @dataclass
@@ -181,7 +182,8 @@ def curated(topic, n):
                          f"{ref.get('spoken', ref['name'])}")
         items.append(Item(it["name"], float(it["value"]),
                           it.get("display") or _fmt(it["value"], dec, unit),
-                          "; ".join(facts), it.get("code", "")))
+                          "; ".join(facts), it.get("code", ""),
+                          list(it.get("aliases", []))))
     return Ranking(
         topic_id=topic["id"], pillar=topic["pillar"], title=topic["title"],
         subtitle=topic["subtitle"], unit_hint=topic["unit_hint"],

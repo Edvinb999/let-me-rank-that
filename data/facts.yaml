@@ -19,8 +19,8 @@ topics:
       - {name: "Burj Khalifa", value: 828, code: "ae", note: "Dubai, completed 2010"}
       - {name: "Merdeka 118", value: 679, code: "my", note: "Kuala Lumpur, completed 2023"}
       - {name: "Shanghai Tower", value: 632, code: "cn", note: "Shanghai"}
-      - {name: "Makkah Clock Tower", value: 601, code: "sa", note: "Mecca"}
-      - {name: "Ping An Finance Center", value: 599, code: "cn", note: "Shenzhen"}
+      - {name: "Makkah Clock Tower", aliases: ["Mecca", "Makkah", "clock tower", "Abraj Al-Bait"], value: 601, code: "sa", note: "Mecca"}
+      - {name: "Ping An Finance Center", aliases: ["Ping An", "Shenzhen"], value: 599, code: "cn", note: "Shenzhen"}
 
   - id: eu-tallest-buildings
     pillar: records
@@ -49,7 +49,7 @@ topics:
     source_long: "Data: List of highest mountains on Earth (Wikipedia); Everest per the 2020 China–Nepal survey"
     reference: {name: "Kilimanjaro", value: 5895, display: "5,895 m", code: "tz"}
     items:
-      - {name: "Mount Everest", value: 8849, note: "Nepal and China border, 2020 survey"}
+      - {name: "Mount Everest", aliases: ["Everest"], value: 8849, note: "Nepal and China border, 2020 survey"}
       - {name: "K2", value: 8611, note: "Pakistan and China border"}
       - {name: "Kangchenjunga", value: 8586, note: "Nepal and India border"}
       - {name: "Lhotse", value: 8516, note: "Nepal and China border, next to Everest"}
@@ -67,7 +67,7 @@ topics:
     items:
       - {name: "Russia", value: 17098242, display: "17.1M km²", code: "ru"}
       - {name: "Canada", value: 9984670, display: "9.98M km²", code: "ca"}
-      - {name: "United States", value: 9833517, display: "9.83M km²", code: "us", note: "ranking against China depends on how coastal and territorial waters are counted"}
+      - {name: "United States", aliases: ["US", "USA", "America"], value: 9833517, display: "9.83M km²", code: "us", note: "ranking against China depends on how coastal and territorial waters are counted"}
       - {name: "China", value: 9596960, display: "9.60M km²", code: "cn"}
       - {name: "Brazil", value: 8515770, display: "8.52M km²", code: "br"}
 
@@ -83,8 +83,8 @@ topics:
     items:
       - {name: "Lake Baikal", value: 1642, code: "ru", note: "Siberia"}
       - {name: "Lake Tanganyika", value: 1470, note: "shared by four African countries"}
-      - {name: "Caspian Sea", value: 1025, note: "technically the world's largest lake"}
-      - {name: "O'Higgins/San Martín", value: 836, note: "on the Chile and Argentina border"}
+      - {name: "Caspian Sea", aliases: ["Caspian"], value: 1025, note: "technically the world's largest lake"}
+      - {name: "O'Higgins/San Martín", aliases: ["O'Higgins", "San Martín", "San Martin"], value: 836, note: "on the Chile and Argentina border"}
       - {name: "Lake Malawi", value: 706, note: "East Africa"}
 
   - id: fastest-land-animals
@@ -100,7 +100,7 @@ topics:
       - {name: "Cheetah", value: 104, note: "highest reliably recorded speed; can only sprint a few hundred metres"}
       - {name: "Pronghorn", value: 88.5, display: "88.5 km/h", note: "best long-distance runner, holds high speed for kilometres"}
       - {name: "Springbok", value: 88, disputed: true}
-      - {name: "Blue wildebeest", value: 80, disputed: true}
+      - {name: "Blue wildebeest", aliases: ["wildebeest", "gnu"], value: 80, disputed: true}
       - {name: "Lion", value: 80, disputed: true, note: "only in short bursts"}
 
   - id: longest-living-animals
@@ -113,8 +113,8 @@ topics:
     source: "Sources: Science (2016), NPR, Ocean Conservancy"
     source_long: "Data: Nielsen et al. 2016, Science (Greenland shark, radiocarbon estimate ±120 years); Ming the ocean quahog (507 years, shell growth lines); bowhead whale 211 years (eye-lens dating); rougheye rockfish 205 years (WDFW); Jonathan the tortoise (estimated)."
     items:
-      - {name: "Ocean quahog clam", value: 507, note: "a clam nicknamed Ming, age counted from growth lines in its shell"}
-      - {name: "Greenland shark", value: 392, display: "~392 years", disputed: true, note: "radiocarbon estimate with a margin of 120 years either way"}
-      - {name: "Bowhead whale", value: 211, note: "longest-living mammal"}
-      - {name: "Rougheye rockfish", value: 205, note: "a deep-water Pacific fish"}
-      - {name: "Giant tortoise", value: 190, display: "~190 years", disputed: true, note: "Jonathan, a tortoise on St Helena; birth year is estimated"}
+      - {name: "Ocean quahog clam", aliases: ["Ming", "quahog", "clam"], value: 507, note: "a clam nicknamed Ming, age counted from growth lines in its shell"}
+      - {name: "Greenland shark", aliases: ["shark"], value: 392, display: "~392 years", disputed: true, note: "radiocarbon estimate with a margin of 120 years either way"}
+      - {name: "Bowhead whale", aliases: ["bowhead", "whale"], value: 211, note: "longest-living mammal"}
+      - {name: "Rougheye rockfish", aliases: ["rockfish"], value: 205, note: "a deep-water Pacific fish"}
+      - {name: "Giant tortoise", aliases: ["Jonathan", "tortoise"], value: 190, display: "~190 years", disputed: true, note: "Jonathan, a tortoise on St Helena; birth year is estimated"}

@@ -14,11 +14,12 @@ def _wchoice(options, wmap, base=None):
     return random.choices(options, weights=ws, k=1)[0]
 
 
-def pick(cfg, n):
+def pick(cfg, n, exclude=()):
     hist = state.history()
     w = state.weights()
     sel = cfg["selection"]
     recent = [h["topic_id"] for h in hist[-sel["topic_cooldown"]:]]
+    recent += list(exclude)
     last_pillar = hist[-1]["pillar"] if hist else None
 
     built = {}
@@ -31,7 +32,8 @@ def pick(cfg, n):
             print(f"[select] skip {tid}: {e}")
     if not built:  # everything on cooldown: allow anything except the last one
         last = hist[-1]["topic_id"] if hist else None
-        built = {t: f(n) for t, f in topics.TOPICS.items() if t != last}
+        built = {t: f(n) for t, f in topics.TOPICS.items()
+                 if t != last and t not in exclude}
 
     pillars = sorted({r.pillar for r in built.values()})
     if len(pillars) > 1 and last_pillar in pillars:

@@ -30,22 +30,33 @@ def build(topic_id=None, mock=False, out_dir="out", publish=False):
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text())
     n = cfg["video"]["items"]
     voice = cfg["voices"][0]
-    if topic_id:
-        ranking = topics.pick(n, topic_id)
-    else:
-        from src import picker
-        ranking, voice = picker.pick(cfg, n)
-    cfg["voice"].update(voice_name=voice["name"], voice_id=voice["voice_id"])
-    print(f"[main] voice: {voice['name']}")
-    print(f"[main] topic: {ranking.topic_id} ({ranking.title})")
-    for i, it in enumerate(ranking.items, 1):
-        print(f"   #{i} {it.name}: {it.display}")
-
-    if mock:
-        script = mock_script(ranking)
-    else:
+    failed = []
+    for tries in range(3):
+        if topic_id:
+            ranking = topics.pick(n, topic_id)
+        else:
+            from src import picker
+            ranking, voice = picker.pick(cfg, n, exclude=failed)
+        cfg["voice"].update(voice_name=voice["name"],
+                            voice_id=voice["voice_id"])
+        print(f"[main] voice: {voice['name']}")
+        print(f"[main] topic: {ranking.topic_id} ({ranking.title})")
+        for i, it in enumerate(ranking.items, 1):
+            print(f"   #{i} {it.name}: {it.display}")
+        if mock:
+            script = mock_script(ranking)
+            break
         from src import script as scriptmod
-        script = scriptmod.write(ranking, cfg)
+        try:
+            script = scriptmod.write(ranking, cfg)
+            break
+        except RuntimeError as e:
+            print(f"[main] script failed for {ranking.topic_id}: {e}")
+            if topic_id:
+                raise
+            failed.append(ranking.topic_id)
+    else:
+        raise RuntimeError("No valid script after 3 topics")
     texts = [script["hook"], *script["lines"], script["outro"]]
     print("[main] narration:\n   " + "\n   ".join(texts))
 
