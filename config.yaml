@@ -15,9 +15,10 @@ script:
 
 voice:
   # Whole narration is ONE take (natural flow) with word timestamps.
+  # voice_name / voice_id are filled from `voices` below for each video.
   model: "eleven_multilingual_v2"
-  voice_name: "Brian"            # looked up by name in your ElevenLabs voices
-  voice_id: "nPczCjzI2devNBz1zQrb" # tried first; falls back to name lookup
+  voice_name: "Brian"
+  voice_id: "nPczCjzI2devNBz1zQrb"
   stability: 0.45
   similarity_boost: 0.8
   style: 0.25
@@ -27,3 +28,20 @@ pillars:
   money:   {accent: "#2BD67B", label: "MONEY"}
   animals: {accent: "#FF9F1C", label: "ANIMALS"}
   records: {accent: "#9B6BFF", label: "RECORDS"}
+
+# Voices are A/B tested: the weekly manager shifts weight to the one with
+# better views/retention. The first voice is the safe fallback.
+voices:
+  - {name: "Brian", voice_id: "nPczCjzI2devNBz1zQrb"}
+  - {name: "Adam",  voice_id: "pNInz6obpgDQGcFmaJgB"}
+
+selection:
+  topic_cooldown: 5          # a topic can't repeat within the last 5 uploads
+  pillar_base: {money: 1.0, animals: 1.0, records: 1.0}
+
+manager:
+  min_videos: 2              # a group needs this many videos to be re-weighted
+  min_age_days: 2            # ignore videos younger than this
+  weight_min: 0.4
+  weight_max: 2.5
+  smoothing: 0.5             # new = old * s + target * (1 - s)
