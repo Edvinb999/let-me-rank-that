@@ -1,1 +1,12 @@
-{"pillar": {}, "topic": {}, "voice": {}}
+{
+ "pillar": {
+  "money": 1.303,
+  "animals": 0.7
+ },
+ "topic": {},
+ "voice": {
+  "Adam": 1.303,
+  "Brian": 0.798
+ },
+ "updated": "2026-09-28"
+}
