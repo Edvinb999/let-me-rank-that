@@ -1,12 +1,18 @@
 {
  "pillar": {
-  "money": 1.303,
-  "animals": 0.7
+  "money": 1.0,
+  "animals": 1.247,
+  "records": 0.834
  },
- "topic": {},
+ "topic": {
+  "bigmac-expensive": 0.83,
+  "longest-living-animals": 1.045,
+  "bigmac-cheapest": 0.876,
+  "fastest-land-animals": 1.749
+ },
  "voice": {
-  "Adam": 1.303,
-  "Brian": 0.798
+  "Adam": 1.238,
+  "Brian": 0.784
  },
- "updated": "2026-09-28"
+ "updated": "2026-10-05"
 }
