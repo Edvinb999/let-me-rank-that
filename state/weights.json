@@ -1,18 +1,21 @@
 {
  "pillar": {
-  "money": 1.0,
-  "animals": 1.247,
-  "records": 0.834
+  "money": 0.877,
+  "animals": 1.309,
+  "records": 0.875
  },
  "topic": {
-  "bigmac-expensive": 0.83,
-  "longest-living-animals": 1.045,
-  "bigmac-cheapest": 0.876,
-  "fastest-land-animals": 1.749
+  "bigmac-expensive": 0.804,
+  "longest-living-animals": 1.314,
+  "bigmac-cheapest": 0.8,
+  "fastest-land-animals": 1.454,
+  "highest-mountains": 0.75,
+  "world-tallest-buildings": 1.019,
+  "deepest-lakes": 1.038
  },
  "voice": {
-  "Adam": 1.238,
-  "Brian": 0.784
+  "Adam": 1.128,
+  "Brian": 0.877
  },
- "updated": "2026-10-05"
+ "updated": "2026-10-12"
 }
