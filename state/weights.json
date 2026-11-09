@@ -1,23 +1,23 @@
 {
  "pillar": {
-  "money": 0.772,
-  "animals": 1.261,
-  "records": 0.992
+  "money": 0.727,
+  "animals": 1.314,
+  "records": 0.975
  },
  "topic": {
-  "bigmac-expensive": 0.838,
-  "longest-living-animals": 1.03,
-  "bigmac-cheapest": 0.668,
-  "fastest-land-animals": 1.544,
-  "highest-mountains": 0.678,
-  "world-tallest-buildings": 0.871,
-  "deepest-lakes": 0.613,
-  "largest-countries": 2.125,
-  "eu-tallest-buildings": 0.765
+  "bigmac-expensive": 0.799,
+  "longest-living-animals": 1.323,
+  "bigmac-cheapest": 0.635,
+  "fastest-land-animals": 1.331,
+  "highest-mountains": 0.653,
+  "world-tallest-buildings": 0.825,
+  "deepest-lakes": 0.611,
+  "largest-countries": 2.16,
+  "eu-tallest-buildings": 0.647
  },
  "voice": {
-  "Adam": 0.959,
-  "Brian": 1.07
+  "Adam": 0.887,
+  "Brian": 1.153
  },
- "updated": "2026-11-02"
+ "updated": "2026-11-09"
 }
